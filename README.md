@@ -98,5 +98,5 @@ VER=1.0.0-r7 sh build-apk.sh "$PWD" "$PWD/dist"
 本仓库不包含设备的真实 UCI 配置、令牌或用户日志。
 
 ## 许可证
-
+该项目基于luci-app-frpc修改
 新增插件实现采用 Apache-2.0。服务脚本中的 OpenWrt FRPC/procd 模式包含上游来源，详见 [NOTICE](NOTICE) 和 `LICENSES/`。FRP 为独立依赖，不打包其二进制。
