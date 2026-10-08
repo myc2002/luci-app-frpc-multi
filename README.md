@@ -2,7 +2,7 @@
 
 用于 OpenWrt / iStoreOS 的 LuCI 多连接 FRP 客户端管理插件。每个连接都是独立的 `frpc` 进程，可分别连接不同的主端（frps）。
 
-> **r9 修复提示：** r8 的 IPK 外层格式不兼容 OpenWrt opkg，会报 `Malformed package file`。请重新运行以下命令以获取 r9，不要用 `--force-depends`。r9 已用真实 OpenWrt opkg 进行隔离安装和配置保留测试，设备完整运行仍需实际验证。
+> **r10 架构修复：** 旧版 APK 的 `aarch64` 标签不等于 OpenWrt 的 `aarch64_generic` / `aarch64_cortex-a53`。插件只有脚本，现改为 APK `noarch` 和 IPK `all` 通用包。重新运行以下一键命令，不要强制改架构或跳过依赖。r8 的 IPK 格式问题已在 r9 修复。
 
 ## 全新系统一键安装
 
@@ -16,7 +16,7 @@ wget -O /tmp/install-frpc-multi.sh https://raw.githubusercontent.com/myc2002/luc
 
 全新系统须已联网，且配置了当前发行版可用的软件源，以安装 LuCI/ucode 等依赖。安装器随后用 `frpc verify` 检查 TOML 等必需能力。若系统 frpc（例如 0.51.3）过旧，将明确提示并从 fatedier/frp 官方 GitHub Release 下载对应架构的 **0.66.0**，按固定 SHA256 验证，安装到 `/usr/lib/frpc-multi/frpc`。这份内核仅本插件优先使用，不覆盖 `/usr/bin/frpc`，不改变其他 FRPC 插件。
 
-APK/IPK 是通用 LuCI 脚本，不含 CPU 专用二进制；APK 按 apk 架构标签构建，IPK 内部为 `Architecture: all`，文件名按目标架构区分。FRPC 由 apk/opkg 从系统软件源安装。APK 未签名（安装器使用 `--allow-untrusted`）；请只使用可信 HTTPS Release，并按 `SHA256SUMS` 校验。
+APK/IPK 仅含通用 LuCI 脚本，不含 CPU 专用二进制。APK 包内架构为 **`noarch`**，IPK 为 **`Architecture: all`**；每个格式只需一个文件，可用于上述 ARM64/x86_64 系统，包括 `aarch64_generic`、`aarch64_cortex-a53`。`uname -m` 仅用来选择需要下载的 FRPC 官方内核，不作为插件包的架构标签。FRPC 由 apk/opkg 从本设备软件源安装。APK 未签名（安装器使用 `--allow-untrusted`）；请只使用可信 HTTPS Release，并按 `SHA256SUMS` 校验。
 
 ## 功能
 
@@ -71,11 +71,13 @@ apk del luci-app-frpc-multi       # 或 opkg remove luci-app-frpc-multi
 
 ## 构建
 
-- `build-release-matrix.sh` 使用 Docker/alpine:edge 的 apk mkpkg 生成 `aarch64` 和 `x86_64` APK、脚本通用 IPK，并写 SHA256 清单。
+- `build-release-matrix.sh` 生成 `noarch` APK 和 `all` IPK，并写 SHA256 清单。APK 默认使用 Docker/alpine:edge；也可设置 `APK_MKPKG=/path/to/apk-v3` 使用本地 apk v3 工具。
 - `scripts/make-ipk.py` 构造 opkg IPK；FRPC 由 `Depends` 从设备软件源按架构安装。
 - 公开仓库没有 GitHub Actions，避免请求额外 workflow 权限；手动构建不自动覆盖 Release。
 
 ## 测试范围
+
+r10 使用真实 apk-tools v3 在隔离根目录验证 `aarch64_generic` / `aarch64_cortex-a53` / `x86_64` 均可安装 `noarch` APK，同时确认错误的 `aarch64` 包被拒绝；真实 OpenWrt opkg 验证这三种架构可安装 `all` IPK、权限正确、升级保留配置。此架构验收使用测试依赖占位，未运行服务安装钩子，不等于完整设备运行验收。可复用测试见 `tests/test-apk-architectures.sh`、`tests/test-opkg-architectures.py`；安装器七种组合测试见 `tests/test-installer.py`。
 
 已测试配置生成与 frpc verify、单实例启停与无限重试、看门狗、loopback API 认证、临时本机 frps 的端口转发、LuCI 页面以及 APK 安装/升级/卸载/重装。未进行真实断电验收，未保证所有协议/FRP 版本组合。
 

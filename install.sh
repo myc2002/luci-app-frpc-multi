@@ -2,25 +2,26 @@
 # OpenWrt one-command installer: native dependencies + compatible FRPC core if required.
 set -eu
 REPO=https://github.com/myc2002/luci-app-frpc-multi
-TAG=v1.0.0-r9
-VERSION=1.0.0-r9
+TAG=v1.0.0-r10
+VERSION=1.0.0-r10
 PKG=luci-app-frpc-multi
 [ "$(id -u)" = 0 ] || { echo '请以 root 运行。' >&2; exit 1; }
 ARCH=$(uname -m)
 case "$ARCH" in
  aarch64|arm64)
-  APK_ARCH=aarch64; IPK_ARCH=aarch64_generic; FRP_ARCH=arm64
+  FRP_ARCH=arm64
   CORE_SHA=196ddaa51b716c2e99aeb2916b0a2bf55bb317494c4acdcefab36c383de950ba ;;
  x86_64|amd64)
-  APK_ARCH=x86_64; IPK_ARCH=x86_64; FRP_ARCH=amd64
+  FRP_ARCH=amd64
   CORE_SHA=317a17a7adac2e6bed2d7a83dc077da91ced0d110e1636373ece8ae5ac8b578b ;;
  *) echo "不支持的架构：$ARCH" >&2; exit 2 ;;
 esac
 MODE=${FRPC_MULTI_PKG_MODE:-auto}
 if [ "$MODE" = apk ] || { [ "$MODE" = auto ] && command -v apk >/dev/null 2>&1 && [ -d /etc/apk ]; }; then
- MODE=apk; FILE="$PKG-$VERSION-$APK_ARCH.apk"
+ # Pure scripts: OpenWrt package architecture names differ from Alpine/uname.
+ MODE=apk; FILE="$PKG-$VERSION-noarch.apk"
 elif [ "$MODE" = opkg ] || { [ "$MODE" = auto ] && command -v opkg >/dev/null 2>&1; }; then
- MODE=opkg; FILE="${PKG}_${VERSION}_${IPK_ARCH}.ipk"
+ MODE=opkg; FILE="${PKG}_${VERSION}_all.ipk"
 else
  echo '未检测到 OpenWrt apk/opkg。' >&2; exit 3
 fi

@@ -3,7 +3,8 @@
 import hashlib,io,os,pathlib,subprocess,tarfile,tempfile
 repo=pathlib.Path(__file__).resolve().parents[1]
 source=(repo/'install.sh').read_text()
-for mode,arch,old in [('apk','aarch64',False),('apk','x86_64',False),('opkg','aarch64',True),('opkg','x86_64',True)]:
+cases=[('apk','aarch64','aarch64_generic',False),('apk','aarch64','aarch64_cortex-a53',True),('apk','aarch64','aarch64',False),('apk','x86_64','x86_64',False),('opkg','aarch64','aarch64_generic',True),('opkg','aarch64','aarch64_cortex-a53',True),('opkg','x86_64','x86_64',True)]
+for mode,arch,pkgarch,old in cases:
  with tempfile.TemporaryDirectory() as d:
   t=pathlib.Path(d);bin=t/'bin';bin.mkdir();fake=t/'fs';fake.mkdir()
   frparch='arm64' if arch=='aarch64' else 'amd64'
@@ -13,13 +14,13 @@ for mode,arch,old in [('apk','aarch64',False),('apk','x86_64',False),('opkg','aa
   with tarfile.open(archive,'w:gz') as f:
    m=tarfile.TarInfo('frp_0.66.0_linux_'+frparch+'/frpc');m.size=len(core);m.mode=0o755;f.addfile(m,io.BytesIO(core))
   sha=hashlib.sha256(archive.read_bytes()).hexdigest()
-  filename=('luci-app-frpc-multi-1.0.0-r9-'+arch+'.apk') if mode=='apk' else ('luci-app-frpc-multi_1.0.0-r9_'+('aarch64_generic' if arch=='aarch64' else arch)+'.ipk')
+  filename='luci-app-frpc-multi-1.0.0-r10-noarch.apk' if mode=='apk' else 'luci-app-frpc-multi_1.0.0-r10_all.ipk'
   (t/'sums').write_text(digest+'  '+filename+'\n');(t/'package').write_bytes(payload)
   def executable(path,content):path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content);path.chmod(0o755)
   executable(bin/'id','#!/bin/sh\necho 0\n')
   executable(bin/'uname','#!/bin/sh\necho '+arch+'\n')
   for cmd in ['apk','opkg']:
-   executable(bin/cmd,'#!/bin/sh\necho "'+cmd+' $*" >> "$TEST_LOG"\n')
+   executable(bin/cmd,'#!/bin/sh\nif [ "$1" = --print-arch ]; then echo '+pkgarch+'; exit 0; fi\nif [ "$1" = print-architecture ]; then printf "arch all 1\\narch '+pkgarch+' 10\\n"; exit 0; fi\necho "'+cmd+' $*" >> "$TEST_LOG"\n')
   executable(bin/'wget','#!/bin/sh\ncase "$3" in */SHA256SUMS) cp "$TEST_FIX/sums" "$2";; *.apk|*.ipk) cp "$TEST_FIX/package" "$2";; *.tar.gz) cp "$TEST_FIX/core.tar.gz" "$2";; *) exit 1;; esac\n')
   executable(fake/'usr/bin/frpc','#!/bin/sh\n[ "$1" = verify ] && exit '+('1' if old else '0')+'\necho '+('0.51.3' if old else '0.66.0')+'\n')
   executable(fake/'etc/init.d/frpc-multi','#!/bin/sh\necho "reload $*" >> "$TEST_LOG"\n')
@@ -32,5 +33,5 @@ for mode,arch,old in [('apk','aarch64',False),('apk','x86_64',False),('opkg','aa
   log=(t/'log').read_text();assert mode+' update' in log and filename in log and 'reload' in log
   assert (fake/'usr/lib/frpc-multi/frpc').exists()==old
   assert ('echo 0.51.3' in (fake/'usr/bin/frpc').read_text())==old
-  print('PASS',mode,arch,'selected asset + SHA256 + dependencies + reload;', 'old core upgraded privately' if old else 'compatible system core retained')
+  print('PASS',mode,arch,pkgarch,'universal asset + SHA256 + dependencies + reload;', 'old core upgraded privately' if old else 'compatible system core retained')
 print('All installer tests use mocked package managers; real feed downloads / service startup not covered')
