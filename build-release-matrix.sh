@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build APK (Alpine apk arch: aarch64 + x86_64) and IPK (script-only payload, Architecture: all).
 set -eu
-VER=${VER:-1.0.0-r8}
+VER=${VER:-1.0.0-r9}
 SRC=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 OUT=${OUT:-$SRC/dist}
 mkdir -p "$OUT"
@@ -22,5 +22,5 @@ python3 "$SRC/scripts/make-ipk.py" --root "$T/root" --out "$T" --scripts "$T/scr
 for A in aarch64_generic x86_64; do
     cp "$T/luci-app-frpc-multi_${VER}_all.ipk" "$OUT/luci-app-frpc-multi_${VER}_$A.ipk"
 done
-(cd "$OUT" && sha256sum luci-app-frpc-multi-$VER-*.apk luci-app-frpc-multi_$VER-*.ipk > SHA256SUMS)
+(cd "$OUT" && sha256sum luci-app-frpc-multi-$VER-*.apk luci-app-frpc-multi_${VER}_*.ipk > SHA256SUMS)
 cat "$OUT/SHA256SUMS"

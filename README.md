@@ -2,6 +2,8 @@
 
 用于 OpenWrt / iStoreOS 的 LuCI 多连接 FRP 客户端管理插件。每个连接都是独立的 `frpc` 进程，可分别连接不同的主端（frps）。
 
+> **r9 修复提示：** r8 的 IPK 外层格式不兼容 OpenWrt opkg，会报 `Malformed package file`。请重新运行以下命令以获取 r9，不要用 `--force-depends`。r9 已用真实 OpenWrt opkg 进行隔离安装和配置保留测试，设备完整运行仍需实际验证。
+
 ## 全新系统一键安装
 
 在全新 OpenWrt / iStoreOS 上以 root 身份复制并运行下面**这一条命令**。脚本会检测 apk/opkg 与 arm64/x86_64，更新系统软件源、选包安装；包依赖由系统包管理器解析，并安装软件源中的匹配架构 `frpc` 内核。
@@ -12,7 +14,7 @@ wget -O /tmp/install-frpc-multi.sh https://raw.githubusercontent.com/myc2002/luc
 
 支持 apk + arm64/aarch64、apk + x86_64、opkg + arm64/aarch64、opkg + x86_64。其他架构会提示不支持。安装后打开 **LuCI → 服务 → frp 多客户端**。
 
-全新系统须已联网，且配置了当前发行版可用的软件源；若软件源不提供兼容 `frpc` 版本，系统包管理器会报依赖错误，不会从别处静默安装内核。
+全新系统须已联网，且配置了当前发行版可用的软件源，以安装 LuCI/ucode 等依赖。安装器随后用 `frpc verify` 检查 TOML 等必需能力。若系统 frpc（例如 0.51.3）过旧，将明确提示并从 fatedier/frp 官方 GitHub Release 下载对应架构的 **0.66.0**，按固定 SHA256 验证，安装到 `/usr/lib/frpc-multi/frpc`。这份内核仅本插件优先使用，不覆盖 `/usr/bin/frpc`，不改变其他 FRPC 插件。
 
 APK/IPK 是通用 LuCI 脚本，不含 CPU 专用二进制；APK 按 apk 架构标签构建，IPK 内部为 `Architecture: all`，文件名按目标架构区分。FRPC 由 apk/opkg 从系统软件源安装。APK 未签名（安装器使用 `--allow-untrusted`）；请只使用可信 HTTPS Release，并按 `SHA256SUMS` 校验。
 
@@ -46,7 +48,7 @@ APK/IPK 是通用 LuCI 脚本，不含 CPU 专用二进制；APK 按 apk 架构�
 
 ## 一键安装脚本做什么
 
-`install.sh`：检查 root、通过 `uname -m` 识别 arm64/x86_64，再检测 `/etc/apk` 下的 apk 或 opkg；运行包管理器的 `update`，并安装本仓库对应 Release 包。它不通过架构通配/不受信来源绕过系统依赖解析。若依赖下载失败会原样报错退出。源文件：[install.sh](install.sh)。
+`install.sh`：检查 root、识别 arm64/x86_64 和 apk/opkg；下载并校验插件 SHA256，运行包管理器 update/install；验证 frpc 能力，必要时下载校验官方 0.66.0 独立内核，最后重载本插件。**手工只安装 APK/IPK 不会执行独立内核下载步骤，旧内核系统请使用上方一键命令。** 源文件：[install.sh](install.sh)。
 
 ## 路径与常用命令
 
