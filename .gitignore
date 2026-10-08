@@ -1,0 +1,8 @@
+/dist/
+*.apk
+*.ipk
+*.log
+*.bak
+*.bak-*
+__pycache__/
+.env
