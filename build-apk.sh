@@ -4,10 +4,11 @@
 set -eu
 SRC=${1:?srcdir}
 OUT=${2:?outdir}
-VER=${VER:-1.0.0-r7}
+VER=${VER:-1.0.0-r8}
 NAME=luci-app-frpc-multi
 PROJECT_URL=${PROJECT_URL:-https://github.com/myc2002/luci-app-frpc-multi}
 APK_LICENSE=${APK_LICENSE:-Apache-2.0 AND GPL-2.0-only}
+APK_ARCH=${APK_ARCH:-noarch}
 
 W=$(mktemp -d /tmp/frpcm-build.XXXXXX)
 trap 'rm -rf "$W"' EXIT
@@ -45,8 +46,8 @@ docker run --rm -v "$W:/w" -v "$OUT:/out" alpine:edge sh -c "
 		-I name:$NAME \
 		-I version:$VER \
 		-I 'description:LuCI app for multiple independent frpc connections (one frpc process per server, live status, logs, watchdog)' \
-		-I arch:noarch \
-		-I "license:$APK_LICENSE" \
+		-I arch:$APK_ARCH \
+		-I license:Apache-2.0 \
 		-I origin:$NAME \
 		-I url:$PROJECT_URL \
 		-I 'depends:frpc luci-base rpcd-mod-ucode ucode-mod-uci ucode-mod-ubus ucode-mod-fs ucode-mod-socket' \

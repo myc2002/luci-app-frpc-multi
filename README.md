@@ -1,102 +1,93 @@
 # luci-app-frpc-multi
 
-用于 OpenWrt / iStoreOS 的 LuCI 多连接 FRP 客户端管理插件。
+用于 OpenWrt / iStoreOS 的 LuCI 多连接 FRP 客户端管理插件。每个连接都是一个独立的 `frpc` 进程，可以分别连接不同的主端（frps）。
 
-每个连接运行独立的 `frpc` 进程，可连接不同的 `frps` 主端。在同一页面管理连接、代理规则、运行状态和日志，无需为每台主端复制服务脚本。
+## 全新系统一键安装
 
-## 特性
-
-- 一键添加连接，在编辑弹窗中填写名称；内部 ID 自动生成。
-- 连接名称支持中文，连接表格、状态卡片和代理所属连接统一显示名称。
-- 支持 TCP、UDP、HTTP、HTTPS、TCPMUX、STCP、XTCP、SUDP。
-- 集成令牌、TLS、传输协议、多路复用、连接池、心跳、DNS、出口代理、带宽限制、加密和压缩等选项。
-- 支持 HTTP 域名/认证、访问端 visitor、HTTP/SOCKS5/static_file/unix_domain_socket 插件。
-- 每连接一个 procd 实例，可独立重启、启用、停用。
-- 默认登录失败不退出；procd 无限重试；可选每分钟看门狗。
-- 显示代理状态与错误原因，按连接查看日志。
-- 保存配置后重新生成 TOML，只重启配置发生变化的实例。
-
-**容量说明：**没有固定的连接数量输入限制，但并非物理上无限。受设备资源和管理 API 端口数量限制；当前自动分配范围为 `27400–27999`（600 个端口，其他程序占用会减少可用数量）。
-
-## 环境要求
-
-- 使用 **apk** 包管理器的 OpenWrt / iStoreOS。
-- LuCI、rpcd ucode 支持，以及 `ucode` 的 uci/ubus/fs/socket 模块。
-- `frpc` 支持 TOML 和 `webServer` 状态 API；已在 **frpc 0.66.0、iStoreOS 25.12.5 x86_64** 上测试。
-- 插件本身为 `noarch`，不包含 FRP 二进制。其他平台需自行提供兼容的 `frpc`。
-- **不支持直接安装到 opkg/ipk 系统**，目前没有 ipk 安装包。
-
-## 安装
-
-从本仓库的 **Releases** 下载 `.apk` 和 `SHA256SUMS`，核对校验值后上传路由器：
+在全新 OpenWrt / iStoreOS 上以 root 身份复制并运行下面**这一条命令**。脚本会自动检测 apk/opkg 与 arm64/x86_64，更新系统软件源并选择对应安装包。包依赖会由系统包管理器解析，同时安装软件源中的匹配架构 `frpc` 内核；无需先手动安装 frpc。
 
 ```sh
-apk add --allow-untrusted /tmp/luci-app-frpc-multi-1.0.0-r7.apk
+wget -O /tmp/install-frpc-multi.sh https://raw.githubusercontent.com/myc2002/luci-app-frpc-multi/main/install.sh && sh /tmp/install-frpc-multi.sh
 ```
 
-当前发布包没有签名，因此需要 `--allow-untrusted`。请只安装可信来源的包。
+支持：apk + arm64/aarch64、apk + x86_64、opkg + arm64/aarch64、opkg + x86_64。其他架构会明确提示不支持。
 
-安装后打开 **服务 → frp 多客户端**。
+安装后打开：**LuCI → 服务 → frp 多客户端**。
+
+脚本需要全新系统已接通网络且配置了对应版本的软件源，以解析并安装 `frpc` 依赖。如果系统软件源没有兼容版本的 `frpc`，包管理器会报出依赖错误，不会偷偷从别处下载或安装其他来源的二进制。
+
+安装包未签名；请只使用本项目 HTTPS Release，下载后按随附 `SHA256SUMS` 校验。APK/IPK 本身是通用 LuCI 脚本，不包含 CPU 专用二进制；APK 文件按架构分别标记，IPK 内部架构为 `all`。FRPC 内核由系统的 apk/opkg 软件源按本机架构自动解析安装。
+
+## 功能
+
+- 每个「连接」运行一个独立 frpc 进程，可管理多个 frps 主端。
+- 一键添加连接；填写显示名称，内部 ID 自动生成。
+- 连接名支持中文，连接表格、状态卡片、代理所属连接统一显示名称。
+- 支持 tcp、udp、http、https、tcpmux、stcp、xtcp、sudp。
+- 集成令牌、TLS、协议、多路复用、连接池、心跳、DNS、出口代理、带宽限制、加密/压缩。
+- HTTP 域名/认证、STCP/XTCP/SUDP visitor，以及 HTTP/SOCKS5/static_file/unix_domain_socket 插件。
+- 每条代理的在线状态、错误和连接日志；连接可独立启用、停用、重启。
+- 登录失败默认持续重试；procd 无限重启；可选每分钟看门狗。
+
+**容量说明：**不限制可创建的 UCI 连接段数量，但不代表设备物理资源无限。当前状态 API 自动使用本机 `127.0.0.1:27400–27999`；600 个端口是状态 API 的上限，已被其他程序占用时可用数量会减少。设备 CPU、内存和网络也会限制实际连接数。
+
+## 兼容要求
+
+- APK：使用 apk 包管理器的 OpenWrt/iStoreOS。
+- IPK：使用 opkg 的 OpenWrt。
+- LuCI、rpcd ucode 和 `ucode` 的 uci/ubus/fs/socket 模块。
+- `frpc` 0.66.0 已验证；需具备 TOML 配置与 loopback `webServer` 状态 API 支持的版本。
+- 已在 iStoreOS 25.12.5 x86_64 上安装及运行验证。其他设备请先备份并确认软件源能提供 `frpc`。
 
 ## 使用
 
 1. 点击「添加连接…」，填写名称、主端地址和端口、令牌等。
-2. 点击「添加代理…」，选择所属连接，设置本地目标和远程端口。
-3. 保存并应用，在状态卡片中确认代理在线。
+2. 点击「添加代理…」，选择所属连接，设置本地目标与远程端口。
+3. 保存并应用，在状态卡片确认连接和代理在线。
 
-名称是页面显示名，内部 ID 用于 procd 实例、日志标识和生成文件名。已有配置的内部 ID 不会被自动改名。
+名称是人看的显示名；内部 ID（如 `c1`）仅供系统使用，在编辑弹窗中只读显示。已有连接 ID 不会自动改变。
 
-默认 TLS 开启；是否关闭取决于你的主端配置。`登录失败即退出` 默认关闭，若启用该选项，连不上主端时进程会退出，仍由 procd/看门狗按配置重试。
+默认 TLS 开启（依照 frp 默认值）；是否关闭取决于主端配置。`登录失败即退出` 默认关闭；停用连接后，看门狗不会拉起它。不要把新连接的远端端口与其他 FRP 实例重复。
 
-「停用」会写入配置，看门狗不会拉起已停用连接；仅用命令 `stop` 停止进程，则可能被看门狗再次启动。
-
-**不会自动迁移或停用其他 FRPC 插件。**迁移时应停用旧实例，避免多个客户端重复注册相同代理名或远程端口。插件也不会自动创建公网防火墙放行规则。
+**不会自动迁移或停用其他 FRPC 插件。** 如果你把现有实例手动迁入，请先规划并停用旧实例，避免重复注册同名代理/远端端口。插件不会自动创建公网防火墙放行规则。
 
 ## 文件与命令
 
-| 路径 | 用途 |
-|---|---|
-| `/etc/config/frpc_multi` | UCI 配置，含连接令牌，权限 600 |
-| `/etc/init.d/frpc-multi` | 多实例服务 |
-| `/var/etc/frpc-multi/<id>.toml` | 生成的运行配置，权限 600 |
-| `/usr/sbin/frpc-multi-watchdog` | 每分钟守护 |
-| `/usr/share/rpcd/ucode/luci.frpc-multi` | 状态、日志、操作 RPC |
+- `/etc/config/frpc_multi`：UCI 配置（权限 600，含连接认证信息）。
+- `/etc/init.d/frpc-multi`：生成 `/var/etc/frpc-multi/<ID>.toml`（权限 600），每条连接一个 procd 实例。
+- `/usr/sbin/frpc-multi-watchdog`：每分钟守护；可在「全局」关闭。
+
+常用命令：
 
 ```sh
-/etc/init.d/frpc-multi checkconfig
+/etc/init.d/frpc-multi checkconfig [内部ID]
 /etc/init.d/frpc-multi restart <内部ID>
 /etc/init.d/frpc-multi reload
-apk del luci-app-frpc-multi
 ```
 
-升级保留修改后的配置；卸载停止实例并移除本插件的开机项和定时任务，修改后的 UCI 配置可能保留。删除含令牌配置前请自行备份。
+升级保留 UCI 配置；卸载会停用/停止连接并移除本插件的 cron 行，但保留配置文件。卸载前请自行备份。
 
-## 安全注意事项
+## 校验
 
-- 每个连接的管理 API 仅监听 `127.0.0.1`，使用自动随机密码。
-- LuCI RPC 由登录权限控制；不要将路由器管理页面直接暴露到公网。
-- 配置、运行 TOML 和日志可能包含敏感信息，不要上传到公开 Issue。
-- 附加 TOML 仅适用于可信管理员，不是安全沙箱。不要覆盖自动生成的管理接口认证或重复声明已有字段。
-- 当前服务以 root 运行；安装脚本会更新 cron 并重载 rpcd。操作前建议备份设备。
+下载相应包及同目录 `SHA256SUMS` 后执行 `sha256sum -c SHA256SUMS`（也可只校验某个 APK/IPK）。正式 Release 还附构建与变更说明。
 
 ## 构建
 
-在安装 Docker、Python 3 的 Linux 主机上：
+- 完整 Release 包矩阵（两 APK + 两 IPK）：`sh build-release-matrix.sh`；需要 Docker。
+- IPK：使用 `scripts/make-ipk.py` 生成标准 opkg IPK（`Architecture: all`，FRPC 由 `Depends` 从 opkg 源按设备架构安装）。示例和矩阵脚本见 `build-release-matrix.sh`。
+- 公开仓库未配置 GitHub Actions，避免申请额外 `workflow` 权限；手动构建不会自动覆盖正式 Release。
 
-```sh
-VER=1.0.0-r7 sh build-apk.sh "$PWD" "$PWD/dist"
-```
+## 测试范围
 
-构建使用 `alpine:edge` 容器中的 `apk mkpkg`。标签会随上游变化，二次构建不保证与现有发布包逐字节相同。
+曾测试配置生成和 `frpc verify`、单实例管理/无限重试、看门狗、loopback API 认证、临时本机 frps 端到端转发、LuCI 页面、APK 安装/升级/卸载/重装。真实设备冷启动行为未实测；并非所有 FRP 版本和协议组合均完成验证。
 
-当前通过上述脚本手动构建。首个公开版本未配置 GitHub Actions，以避免为发布额外授予 `workflow` 权限。
+## 安全
 
-## 测试与版本
-
-详见 [CHANGELOG.md](CHANGELOG.md)。曾测试配置生成、frpc verify、单连接操作、看门狗、权限、临时本机 frps 端到端转发，以及安装/升级/卸载/重装。**未进行真实断电启动验收，也未测试所有主端版本和每一种代理协议。**
-
-本仓库不包含设备的真实 UCI 配置、令牌或用户日志。
+- frpc 管理 API 只监听 `127.0.0.1`，凭据随机生成。
+- rpcd API 受 LuCI ACL 保护；不要把路由器管理界面暴露到公网。
+- 附加 TOML 是管理员输入，不是安全沙箱。配置、运行 TOML 和日志可能包含敏感信息；请勿在公开 Issue 上传真实配置/令牌。
+- 服务以 root 运行；安装/升级脚本更新 cron 并重载 rpcd，请只从可信 HTTPS Release 安装。
 
 ## 许可证
 
-新增插件实现采用 Apache-2.0。服务脚本中的 OpenWrt FRPC/procd 模式包含上游来源，详见 [NOTICE](NOTICE) 和 `LICENSES/`。FRP 为独立依赖，不打包其二进制。
+新增代码 Apache-2.0；服务脚本中的 OpenWrt FRPC/procd 模式参考 GPL-2.0 上游，见 `NOTICE` 和 `LICENSES/GPL-2.0.txt`。FRP 二进制是独立依赖，不包含在插件包中。
