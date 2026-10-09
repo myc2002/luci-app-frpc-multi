@@ -1,3 +1,5 @@
+**简体中文** | [English](README.en.md)
+
 # luci-app-frpc-multi
 
 OpenWrt / iStoreOS 的 LuCI 多连接 frp 客户端。每个连接对应一个独立的 `frpc` 进程，可同时连接多个 frp 服务端，并在页面里统一查看状态、日志和启停。
